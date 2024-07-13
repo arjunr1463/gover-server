@@ -1,17 +1,45 @@
 const otps = require("../models/otps");
-const twilio = require("twilio");
 const users = require("../models/users");
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
 
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+const sendOtpEmail = async (toEmail, otpCode) => {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: toEmail,
+    subject: "Your OTP Code to Vote for FashionTV Creators Award!",
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #333;">
+        <h2 style="color: #D45D00;">Cast Your Vote with Gover!</h2>
+        <p>Thank you for participating in the FashionTV Creators Award! We’re excited to have you vote for your favorite candidates.</p>
+        <p>Your one-time password (OTP) for secure voting is:</p>
+        <h3 style="font-weight: bold; font-size: 24px;">${otpCode}</h3>
+        <p>This OTP is valid for only 5 minutes. Please use it promptly!</p>
+        <p><a href="https://gover-client.vercel.app/otp" style="color: #D45D00; text-decoration: none;">Click here to verify your OTP and cast your vote!</a></p>
+        <p>If you didn’t request this OTP, feel free to disregard this message.</p>
+        <footer style="margin-top: 20px; font-size: 12px; color: #777;">
+          <p>Best wishes,</p>
+          <p>The Gover Team</p>
+        </footer>
+      </div>
+    `,
+  };
+  await transporter.sendMail(mailOptions);
+};
+
 
 const otpGenerator = async (req, res) => {
-  const { phoneNumber } = req.body;
+  const { email } = req.body;
 
-  const userRecord = await users.findOne({ phoneNumber });
+  const userRecord = await users.findOne({ email });
 
   if (userRecord) {
     var token = jwt.sign({ userId: userRecord._id }, process.env.JWT_SECRET, {
@@ -27,19 +55,15 @@ const otpGenerator = async (req, res) => {
 
   const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-  const userNumber = await otps.findOne({ phoneNumber });
+  const userNumber = await otps.findOne({ email });
 
   if (userNumber) {
     await otps.updateOne(
-      { phoneNumber },
+      { email },
       { $set: { otp: otpCode, createdAt: new Date() } }
     );
-    const newOtp = await otps.findOne({ phoneNumber });
-    client.messages.create({
-      body: ` Your OTP code is ${otpCode} `,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: phoneNumber,
-    });
+    const newOtp = await otps.findOne({ email });
+    await sendOtpEmail(email, otpCode);
     return res.status(200).json({
       status: true,
       data: newOtp,
@@ -47,33 +71,25 @@ const otpGenerator = async (req, res) => {
     });
   }
   const otp = new otps({
-    phoneNumber,
+    email,
     otp: otpCode,
     createdAt: new Date(),
   });
 
   const sendData = await otp.save();
 
-  if (sendData) {
-    client.messages.create({
-      body: ` Your OTP code is ${otpCode} `,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: phoneNumber,
-    });
-    return res.status(200).json({
-      status: true,
-      data: sendData,
-      message: "otp",
-    });
-  }
+  await sendOtpEmail(email, otpCode);
+  return res.status(200).json({
+    status: true,
+    data: sendData,
+    message: "otp",
+  });
 };
 
 const otpValidation = async (req, res) => {
-  const { phoneNumber, otp } = req.body;
+  const { email, otp } = req.body;
 
-  const otpRecode = await otps
-    .findOne({ phoneNumber, otp })
-    .sort({ createdAt: -1 });
+  const otpRecode = await otps.findOne({ email, otp }).sort({ createdAt: -1 });
 
   if (!otpRecode) {
     return res.status(400).json({ success: false, message: "Invalid OTP " });
@@ -84,13 +100,13 @@ const otpValidation = async (req, res) => {
   const differentMinutes = Math.floor((currentTime - otpTime) / 1000 / 60);
 
   if (differentMinutes > 5) {
-    await otps.deleteMany({ phoneNumber, otp });
+    await otps.deleteMany({ email, otp });
     return res.status(400).json({ success: false, message: ` OTP expired ` });
   }
 
-  await otps.deleteMany({ phoneNumber, otp });
+  await otps.deleteMany({ email, otp });
   const newUser = new users({
-    phoneNumber: phoneNumber,
+    email: email,
   });
   const user = await newUser.save();
 

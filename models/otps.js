@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const schema = mongoose.Schema({
-  phoneNumber: {
+  email: {
     type: String,
     required: true,
   },

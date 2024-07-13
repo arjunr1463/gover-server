@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const userSchema = mongoose.Schema({
-  phoneNumber: {
+  email: {
     type: String,
     required: true,
   },

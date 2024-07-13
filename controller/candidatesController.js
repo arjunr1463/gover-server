@@ -30,11 +30,13 @@ const createCandidate = async (req, res) => {
     // Save the new candidate and update the category concurrently
     const [candidateData] = await Promise.all([
       newCandidate.save(),
-      categorySchema.findByIdAndUpdate(
-        category,
-        { $push: { candidates: newCandidate._id } },
-        { new: true }
-      ).exec(),
+      categorySchema
+        .findByIdAndUpdate(
+          category,
+          { $push: { candidates: newCandidate._id } },
+          { new: true }
+        )
+        .exec(),
     ]);
 
     return res.status(200).json(candidateData);
@@ -46,7 +48,6 @@ const createCandidate = async (req, res) => {
     });
   }
 };
-
 
 const deleteCandidate = async (req, res) => {
   const { email } = req.body;
@@ -66,9 +67,30 @@ const deleteCandidate = async (req, res) => {
 const getCandidate = async (req, res) => {
   const { category, type } = req.query;
   if (category && type) {
+    const findUser = await users.findById(userId);
+    const findCategory = findUser?.vote?.find(
+      (item) => item.categoryId === category
+    );
+    let votedCandidates = [];
+    if (findCategory) {
+      const candidateIds = [
+        findCategory.mega,
+        findCategory.micro,
+        findCategory.macro,
+      ].filter(Boolean);
+      votedCandidates = await candidates.find({
+        _id: { $in: candidateIds },
+      });
+    }
+
     const candidateList = await candidates.find({ category, type });
     if (candidateList) {
-      return res.status(200).json(candidateList);
+      return res.status(200).json({
+        success: true,
+        candidates: candidateList,
+        votedCandidates: votedCandidates,
+        category: findUser?.vote,
+      });
     } else {
       return res.status(400).json("not found candidate");
     }
@@ -104,13 +126,13 @@ const addVote = async (req, res) => {
       );
 
       if (categoryVote) {
-        if (categoryVote[type]) {
+        if (categoryVote[type] !== undefined) {
           return res.status(403).json({
             status: false,
             message: "Already voted",
           });
         }
-        categoryVote[type] = true;
+        categoryVote[type] = candidateData._id;
         voteUpdated = true;
       }
     }
@@ -118,10 +140,7 @@ const addVote = async (req, res) => {
     if (!voteUpdated) {
       const newVote = {
         categoryId,
-        mega: false,
-        micro: false,
-        macro: false,
-        [type]: true,
+        [type]: candidateData._id,
       };
       user.vote.push(newVote);
     }
@@ -138,9 +157,43 @@ const addVote = async (req, res) => {
   }
 };
 
+const getUser = async (req, res) => {
+  try {
+    const user = await users.findById(userId);
+    return res.status(200).json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Internal server error");
+  }
+};
+
+const totalVotes = async (req, res) => {
+  try {
+    const votes = await candidates.find();
+    const totalVoteCount = votes.reduce((acc, data) => acc + data.voteCount, 0);
+
+    const formattedVoteCount = (totalVoteCount + 100)
+      .toString()
+      .padStart(7, "0");
+
+    return res.status(200).json({
+      success: true,
+      data: formattedVoteCount,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Internal server error");
+  }
+};
+
 module.exports = {
   createCandidate,
   deleteCandidate,
   getCandidate,
   addVote,
+  getUser,
+  totalVotes,
 };

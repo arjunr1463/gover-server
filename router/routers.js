@@ -31,4 +31,9 @@ router.delete("/api/delete-candidate", candidatesController.deleteCandidate);
 router.get("/api/get-candidate", jwtVerify, candidatesController.getCandidate);
 router.put("/api/vote-added", jwtVerify, candidatesController.addVote);
 
+// ********user********************************************
+router.get("/api/get-user", jwtVerify, candidatesController.getUser);
+
+router.get("/api/votes", jwtVerify, candidatesController.totalVotes);
+
 module.exports = router;

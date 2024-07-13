@@ -44,7 +44,6 @@ const otpGenerator = async (req, res) => {
     var token = jwt.sign({ userId: userRecord._id }, process.env.JWT_SECRET, {
       expiresIn: "1D",
     });
-
     return res.status(200).json({
       success: true,
       data: token,
@@ -107,7 +106,6 @@ const otpValidation = async (req, res) => {
     email: email,
   });
   const user = await newUser.save();
-
   var token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
     expiresIn: "1D",
   });

@@ -35,7 +35,7 @@ const deleteCategory = async (req, res) => {
 };
 
 const allCategory = async (req, res) => {
-  const categoryList = await category.find();
+  const categoryList = await category.find().populate("candidates");
   if (categoryList) {
     return res.status(200).json(categoryList);
   }

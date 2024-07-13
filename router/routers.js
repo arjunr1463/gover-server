@@ -19,7 +19,7 @@ router.post(
 );
 router.delete("/api/delete-category", categoryController.deleteCategory);
 
-router.get("/api/all-category", categoryController.allCategory);
+router.get("/api/all-category", jwtVerify, categoryController.allCategory);
 
 // ********candidate********************************************
 router.post(
@@ -28,7 +28,7 @@ router.post(
   candidatesController.createCandidate
 );
 router.delete("/api/delete-candidate", candidatesController.deleteCandidate);
-router.get("/api/get-candidate", candidatesController.getCandidate);
+router.get("/api/get-candidate", jwtVerify, candidatesController.getCandidate);
 router.put("/api/vote-added", jwtVerify, candidatesController.addVote);
 
 module.exports = router;

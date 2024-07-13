@@ -35,7 +35,6 @@ const sendOtpEmail = async (toEmail, otpCode) => {
   await transporter.sendMail(mailOptions);
 };
 
-
 const otpGenerator = async (req, res) => {
   const { email } = req.body;
 
@@ -65,7 +64,7 @@ const otpGenerator = async (req, res) => {
     const newOtp = await otps.findOne({ email });
     await sendOtpEmail(email, otpCode);
     return res.status(200).json({
-      status: true,
+      success: true,
       data: newOtp,
       message: "otp",
     });
@@ -80,7 +79,7 @@ const otpGenerator = async (req, res) => {
 
   await sendOtpEmail(email, otpCode);
   return res.status(200).json({
-    status: true,
+    success: true,
     data: sendData,
     message: "otp",
   });
@@ -89,7 +88,7 @@ const otpGenerator = async (req, res) => {
 const otpValidation = async (req, res) => {
   const { email, otp } = req.body;
 
-  const otpRecode = await otps.findOne({ email, otp }).sort({ createdAt: -1 });
+  const otpRecode = await otps.findOne({ email, otp });
 
   if (!otpRecode) {
     return res.status(400).json({ success: false, message: "Invalid OTP " });
@@ -100,11 +99,10 @@ const otpValidation = async (req, res) => {
   const differentMinutes = Math.floor((currentTime - otpTime) / 1000 / 60);
 
   if (differentMinutes > 5) {
-    await otps.deleteMany({ email, otp });
     return res.status(400).json({ success: false, message: ` OTP expired ` });
   }
 
-  await otps.deleteMany({ email, otp });
+  await otps.deleteOne({ email, otp });
   const newUser = new users({
     email: email,
   });
